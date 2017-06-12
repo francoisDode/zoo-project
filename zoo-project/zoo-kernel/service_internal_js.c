@@ -56,6 +56,22 @@ JSAlert(JSContext *cx, uintN argc, jsval *argv1)
   return JS_TRUE;
 }
 
+JSBool
+JSException(JSContext *cx, uintN argc, jsval *argv1)
+{
+  jsval *argv = JS_ARGV(cx,argv1);
+  int i=0;
+  JS_MaybeGC(cx);
+  for(i=0;i<argc;i++){
+    JSString* jsmsg = JS_ValueToString(cx,argv[i]);
+    char *tmp=JS_EncodeString(cx,jsmsg);
+    fprintf(stderr,"[ZOO-API:JS] %s\n",tmp);
+    JS_ReportError(cx, "%s", tmp);
+    free(tmp);
+  }
+  return JS_FALSE;
+}
+
 /**
  * The function used as importScript from the JavaScript environment (ZOO-API)
  * 
@@ -158,6 +174,8 @@ int zoo_js_support(maps** main_conf,map* request,service* s,maps **inputs,maps *
   if (!JS_DefineFunction(cx, global, "alert", JSAlert, 2, 0))
     return 1;  
   if (!JS_DefineFunction(cx, global, "importScripts", JSLoadScripts, 1, 0))
+    return 1;
+  if (!JS_DefineFunction(cx, global, "throwException", JSException, 1, 0))
     return 1;
 
   /**
@@ -953,6 +971,10 @@ JSRequest(JSContext *cx, uintN argc, jsval *argv1)
 		      INTERNET_FLAG_NO_CACHE_WRITE,0);
       processDownloads(&hInternet);
     }
+  }
+  if(hInternet.ihandle[0].code!=200){
+    JS_ReportError(cx, "Request FAILED http response code %ld", hInternet.ihandle[0].code);
+    return JS_FALSE;
   }
   tmpValue=(char*)malloc((hInternet.ihandle[0].nDataLen+1)*sizeof(char));
   InternetReadFile(hInternet.ihandle[0],(LPVOID)tmpValue,hInternet.ihandle[0].nDataLen,&dwRead);

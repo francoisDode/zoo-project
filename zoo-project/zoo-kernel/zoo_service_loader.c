@@ -2157,7 +2157,6 @@ runRequest (map ** inputs)
     setMapInMaps (m, "lenv", "uusid", test1->value);
   }
 #endif
-
   char *fbkp, *fbkpid, *fbkpres, *fbkp1, *flog;
   FILE *f0, *f1;
   if (status != NULL)

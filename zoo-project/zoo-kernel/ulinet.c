@@ -88,10 +88,12 @@ size_t header_write_data(void *buffer, size_t size, size_t nmemb, void *data){
 #else
 	;
 #endif
-    _HINTERNET *psInternet=(_HINTERNET *)data;
     tmp=strtok(buffer,";");
-    if(tmp!=NULL){
-      sprintf(CCookie[psInternet->id],"%s",tmp);
+    int cnt=0;
+    _HINTERNET *psInternet=(_HINTERNET *)data;
+    if(tmp!=NULL && psInternet!=NULL){
+      psInternet->cookie=(char*)malloc(sizeof(char)*(strlen(tmp)+1));
+      sprintf(psInternet->cookie,"%s",tmp);
     }
   }
   return size * nmemb;//write_data_into(buffer,size,nmemb,data,HEADER);
@@ -99,7 +101,7 @@ size_t header_write_data(void *buffer, size_t size, size_t nmemb, void *data){
 
 /**
  * Define the proxy to use for a CURL handler
- * 
+ *
  * @param handle the CURL handler
  * @param host the proxy host (including http://)
  * @param port the proxy port
@@ -131,15 +133,15 @@ OSStatus setProxiesForProtcol(CURL* handle,const char *proto){
   OSStatus		err;
   CFDictionaryRef proxyDict;
   CFArrayRef		proxies;
-  
+
   CFStringRef key_enabled = NULL;
   CFStringRef key_host = NULL;
   CFStringRef key_port = NULL;
-  
+
   bool proxy_enabled;
   char *proxy_host;
   long proxy_port;
-  
+
   proxyDict = NULL;
   proxies = NULL;
 
@@ -197,7 +199,7 @@ int setProxiesForProtcol(CURL* handle,const char *proto){
  *
  * @param lpszAgent the HTPP User-Agent to use to send requests
  * @param  dwAccessType type of access required
- * @param  lpszProxyName the name of the proxy server(s) to use 
+ * @param  lpszProxyName the name of the proxy server(s) to use
  * @param  lpszProxyBypass ip address or host names which should not be routed
  *  through the proxy
  * @param  dwFlags Options (INTERNET_FLAG_ASYNC,INTERNET_FLAG_FROM_CACHE,INTERNET_FLAG_OFFLINE)
@@ -214,8 +216,8 @@ HINTERNET InternetOpen(char* lpszAgent,int dwAccessType,char* lpszProxyName,char
 
 /**
  * Add missing headers to an existing _HINTERNET
- * 
- * 
+ *
+ *
  * @param handle the _HINTERNET pointer
  * @param key the header parameter name
  * @param value the header parameter value
@@ -262,7 +264,7 @@ int isProtectedHost(const char* protectedHosts,const char* url){
 /**
  * Add headers defined in [security] > attributes to an existing HINTERNET
  * @see isProtectedHost, AddMissingHeaderEntry
- * 
+ *
  * @param handle the _HINTERNET pointer
  * @param conf the header parameter name
  * @param value the header parameter value
@@ -294,7 +296,7 @@ void AddHeaderEntries(HINTERNET* handle,maps* conf){
 	  }
 	  fprintf(stderr,"%s %d %s \n",__FILE__,__LINE__,tmp1);
 	  map* tmpMap = getMapFromMaps(conf,"renv",tmp1);
-	  if(tmpMap!=NULL)	    
+	  if(tmpMap!=NULL)
 	    AddMissingHeaderEntry(&handle->ihandle[i],token,tmpMap->value);
 	  free(tmp1);
 	  if(handle->ihandle[i].header!=NULL)
@@ -333,8 +335,10 @@ void InternetCloseHandle(HINTERNET* handle0){
       free(handle.post);
     if(handle.url!=NULL)
       free(handle.url);
-    free(handle.mimeType);
-    handle.mimeType = NULL;
+    if(handle.mimeType!=NULL)
+      free(handle.mimeType);
+    if(handle.cookie!=NULL)
+      free(handle.cookie);
   }
   if(handle0->handle)
     curl_multi_cleanup(handle0->handle);
@@ -364,6 +368,7 @@ HINTERNET InternetOpenUrl(HINTERNET* hInternet,LPCTSTR lpszUrl,LPCTSTR lpszHeade
   hInternet->ihandle[hInternet->nb].nDataAlloc = 0;
   hInternet->ihandle[hInternet->nb].url = NULL;
   hInternet->ihandle[hInternet->nb].mimeType = NULL;
+  hInternet->ihandle[hInternet->nb].cookie = NULL;
   hInternet->ihandle[hInternet->nb].nDataLen = 0;
   hInternet->ihandle[hInternet->nb].id = hInternet->nb;
   hInternet->ihandle[hInternet->nb].nDataAlloc = 0;
@@ -375,10 +380,10 @@ HINTERNET InternetOpenUrl(HINTERNET* hInternet,LPCTSTR lpszUrl,LPCTSTR lpszHeade
   curl_easy_setopt(hInternet->ihandle[hInternet->nb].handle, CURLOPT_COOKIELIST, "ALL");
 #endif
   curl_easy_setopt(hInternet->ihandle[hInternet->nb].handle, CURLOPT_USERAGENT, hInternet->agent);
-  
+
   curl_easy_setopt(hInternet->ihandle[hInternet->nb].handle,CURLOPT_FOLLOWLOCATION,1);
   curl_easy_setopt(hInternet->ihandle[hInternet->nb].handle,CURLOPT_MAXREDIRS,3);
-  
+
   header.memory=NULL;
   header.size = 0;
 
@@ -389,7 +394,7 @@ HINTERNET InternetOpenUrl(HINTERNET* hInternet,LPCTSTR lpszUrl,LPCTSTR lpszHeade
   curl_easy_setopt(hInternet->ihandle[hInternet->nb].handle, CURLOPT_VERBOSE, 1);
 #endif
 
-      
+
   switch(dwFlags)
     {
     case INTERNET_FLAG_NO_CACHE_WRITE:
@@ -405,7 +410,7 @@ HINTERNET InternetOpenUrl(HINTERNET* hInternet,LPCTSTR lpszUrl,LPCTSTR lpszHeade
 #endif
       hInternet->ihandle[hInternet->nb].filename=filename;
       hInternet->ihandle[hInternet->nb].file=fopen(hInternet->ihandle[hInternet->nb].filename,"w+");
-    
+
       hInternet->ihandle[hInternet->nb].hasCacheFile=1;
       curl_easy_setopt(hInternet->ihandle[hInternet->nb].handle, CURLOPT_WRITEFUNCTION, NULL);
       curl_easy_setopt(hInternet->ihandle[hInternet->nb].handle, CURLOPT_WRITEDATA, hInternet->ihandle[hInternet->nb].file);
@@ -436,7 +441,7 @@ HINTERNET InternetOpenUrl(HINTERNET* hInternet,LPCTSTR lpszUrl,LPCTSTR lpszHeade
   hInternet->ihandle[hInternet->nb].url = zStrdup(lpszUrl);
 
   curl_multi_add_handle(hInternet->handle,hInternet->ihandle[hInternet->nb].handle);
-  
+
   hInternet->ihandle[hInternet->nb].header=NULL;
   ++hInternet->nb;
 
@@ -459,15 +464,21 @@ int processDownloads(HINTERNET* hInternet){
   int i=0;
   do{
     curl_multi_perform(hInternet->handle, &still_running);
-  }while(still_running);  
+  }while(still_running);
   for(i=0;i<hInternet->nb;i++){
     char *tmp;
     curl_easy_getinfo(hInternet->ihandle[i].handle,CURLINFO_CONTENT_TYPE,&tmp);
+
     if(tmp!=NULL)
       hInternet->ihandle[i].mimeType=strdup(tmp);
+
     curl_easy_getinfo(hInternet->ihandle[i].handle,CURLINFO_RESPONSE_CODE,&hInternet->ihandle[i].code);
-    curl_multi_remove_handle(hInternet->handle, hInternet->ihandle[i].handle);
+
+    if(hInternet->ihandle[i].handle != NULL)
+      curl_multi_remove_handle(hInternet->handle, hInternet->ihandle[i].handle);
+
     curl_easy_cleanup(hInternet->ihandle[i].handle);
+
   }
   return 0;
 }
@@ -489,7 +500,7 @@ int freeCookieList(HINTERNET hInternet){
 
 /**
  * Copy a downloaded content
- * 
+ *
  * @param hInternet the _HINTERNET structure
  * @param lpBuffer the memory space to copy the downloaded content
  * @param dwNumberOfBytesToRead the size of lpBuffer
@@ -520,7 +531,7 @@ int InternetReadFile(_HINTERNET hInternet,LPVOID lpBuffer,int dwNumberOfBytesToR
 #endif
 
   if(hInternet.hasCacheFile>0){
-    *lpdwNumberOfBytesRead = fread(lpBuffer,1,dwDataSize,hInternet.file); 
+    *lpdwNumberOfBytesRead = fread(lpBuffer,1,dwDataSize,hInternet.file);
   }
   else{
     *lpdwNumberOfBytesRead = hInternet.nDataLen;
@@ -540,7 +551,7 @@ int InternetReadFile(_HINTERNET hInternet,LPVOID lpBuffer,int dwNumberOfBytesToR
 
 /**
  * Use basic authentication for accessing a resource
- * 
+ *
  * @param hInternet the _HINTERNET structure
  * @param login the login to use to authenticate
  * @param passwd the password to use to authenticate

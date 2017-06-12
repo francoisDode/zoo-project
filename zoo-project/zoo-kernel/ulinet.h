@@ -87,6 +87,7 @@ extern "C" {
     char *url; //!< the url used to access the server
     char *mimeType; //!< the mimeType returned by the server
     char *post; //!< the potential POST XML content
+    char* cookie; //!< The potential Cookie returned by the server
     int hasCacheFile; //!< 1 if we used a cache file
     int nDataLen; //!< the length of the downloaded content
     int nDataAlloc; //!< 
