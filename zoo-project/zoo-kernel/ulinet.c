@@ -433,6 +433,7 @@ HINTERNET InternetOpenUrl(HINTERNET* hInternet,LPCTSTR lpszUrl,LPCTSTR lpszHeade
     hInternet->ihandle[hInternet->nb].post=strdup(lpszHeaders);
     curl_easy_setopt(hInternet->ihandle[hInternet->nb].handle,CURLOPT_POSTFIELDS,hInternet->ihandle[hInternet->nb].post);
     curl_easy_setopt(hInternet->ihandle[hInternet->nb].handle,CURLOPT_POSTFIELDSIZE,(long)dwHeadersLength);
+    hInternet->ihandle[hInternet->nb].header = curl_slist_append(hInternet->ihandle[hInternet->nb].header, "Expect:");
   }
   if(hInternet->ihandle[hInternet->nb].header!=NULL)
     curl_easy_setopt(hInternet->ihandle[hInternet->nb].handle,CURLOPT_HTTPHEADER,hInternet->ihandle[hInternet->nb].header);
